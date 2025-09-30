@@ -11,35 +11,38 @@ output:
 How many rows are available in the Measurements table of the Smith College Wideband Auditory Immittance database?
 ```{r}
 library(RMariaDB)
-library(dplyr)
+library(tidyverse)
+library(mdsr)
 
 con <- dbConnect(
   MariaDB(), host = "scidb.smith.edu",
   user = "waiuser", password = "smith_waiDB", 
   dbname = "wai"
 )
-
 Measurements <- tbl(con, "Measurements")
-Measurements %>% count()
+
+dbGetQuery(con, "
+  SELECT COUNT(*) AS n_rows
+  FROM Measurements;
+")
 ```
 There are 5052304 rows available in the Measurements table of the Smith College Wideband Auditory Immittance database.
 
 # Q3
 Identify what years of data are available in the flights table of the airlines database.
 ```{r}
-library(tidyverse)
-library(mdsr)
-
 con <- dbConnect_scidb("airlines")
 
 flights <- tbl(con, "flights")
 
-flights %>%
-  distinct(year) %>%
-  arrange(year) %>%
-  collect()
+dbGetQuery(con, "
+  SELECT DISTINCT year
+  FROM flights
+  ORDER BY year;
+")
 ```
 The years of data that are available in the flights table of the airlines database are 2013, 2014, and 2015. 
+
 
 # Q4
 Use the dbConnect_scidb function to connect to the airlines database to answer the following problem.
@@ -195,22 +198,17 @@ flights <- tbl(con, "flights")
 ```
 
 ```{r}
-summary_2013 <- tbl(con, "flights") %>%
-  filter(year == 2013, origin %in% c("JFK", "LGA", "EWR")) %>% 
-  mutate(
-    on_time = dep_delay <= 15,
-    cancelled = is.na(dep_delay) & is.na(arr_delay)
-  ) %>%
-  group_by(origin) %>%
-  summarise(
-    n_flights      = n(),
-    avg_delay    = mean(dep_delay, na.rm = TRUE),
-    cancel_delay    = mean(cancelled, na.rm = TRUE),
-    on_time_rate    = mean(on_time, na.rm = TRUE)
-  ) %>%
-  arrange(avg_delay) %>%
-  collect()
-
-summary_2013
+dbGetQuery(con, "
+  SELECT origin,
+         COUNT(*) AS n_flights,
+         AVG(dep_delay) AS avg_delay,
+         AVG(CASE WHEN dep_delay IS NULL AND arr_delay IS NULL THEN 1 ELSE 0 END) AS cancel_rate,
+         AVG(CASE WHEN dep_delay <= 15 THEN 1 ELSE 0 END) AS on_time_rate
+  FROM flights
+  WHERE year = 2013
+    AND origin IN ('JFK', 'LGA', 'EWR')
+  GROUP BY origin
+  ORDER BY avg_delay;
+")
 ```
 Based on the 2013 data, I would choose to fly out of LaGuardia (LGA) airport out of all the airports in the NYC area. It had the highest on-time departure rate at 81.67% and the lowest average departure delay of 10.0352 minutes compared to the other New York area airports. All three airports had no cancellations. While Newark (EWR) offered more flights than LaGuardia at 120835 flights for Newark compared to 104662 flights for LaGuardia, I find punctuality and cancellation rate more valuable than the number of flights offered. Therefore, LaGuardia (LGA) would be my preferred choice.
