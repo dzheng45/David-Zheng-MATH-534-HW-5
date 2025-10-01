@@ -24,35 +24,37 @@ College Wideband Auditory Immittance database?
 
 ``` r
 library(RMariaDB)
-library(dplyr)
+library(tidyverse)
 ```
 
-    ## 
-    ## Attaching package: 'dplyr'
-
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     filter, lag
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     intersect, setdiff, setequal, union
+    ## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+    ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
+    ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+    ## ✔ ggplot2   3.5.2     ✔ tibble    3.3.0
+    ## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+    ## ✔ purrr     1.1.0     
+    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ✖ dplyr::filter() masks stats::filter()
+    ## ✖ dplyr::lag()    masks stats::lag()
+    ## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
 
 ``` r
+library(mdsr)
+
 con <- dbConnect(
   MariaDB(), host = "scidb.smith.edu",
   user = "waiuser", password = "smith_waiDB", 
   dbname = "wai"
 )
-
 Measurements <- tbl(con, "Measurements")
-Measurements %>% count()
+
+dbGetQuery(con, "
+  SELECT COUNT(*) AS n_rows
+  FROM Measurements;
+")
 ```
 
-    ## # Source:   SQL [?? x 1]
-    ## # Database: mysql  [waiuser@scidb.smith.edu:3306/wai]
-    ##         n
-    ##   <int64>
+    ##    n_rows
     ## 1 5052304
 
 There are 5052304 rows available in the Measurements table of the Smith
@@ -64,38 +66,21 @@ Identify what years of data are available in the flights table of the
 airlines database.
 
 ``` r
-library(tidyverse)
-```
-
-    ## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-    ## ✔ forcats   1.0.0     ✔ readr     2.1.5
-    ## ✔ ggplot2   3.5.2     ✔ stringr   1.5.1
-    ## ✔ lubridate 1.9.4     ✔ tibble    3.3.0
-    ## ✔ purrr     1.1.0     ✔ tidyr     1.3.1
-    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-    ## ✖ dplyr::filter() masks stats::filter()
-    ## ✖ dplyr::lag()    masks stats::lag()
-    ## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-
-``` r
-library(mdsr)
-
 con <- dbConnect_scidb("airlines")
 
 flights <- tbl(con, "flights")
 
-flights %>%
-  distinct(year) %>%
-  arrange(year) %>%
-  collect()
+dbGetQuery(con, "
+  SELECT DISTINCT year
+  FROM flights
+  ORDER BY year;
+")
 ```
 
-    ## # A tibble: 3 × 1
-    ##    year
-    ##   <int>
-    ## 1  2013
-    ## 2  2014
-    ## 3  2015
+    ##   year
+    ## 1 2013
+    ## 2 2014
+    ## 3 2015
 
 The years of data that are available in the flights table of the
 airlines database are 2013, 2014, and 2015.
@@ -543,31 +528,24 @@ flights <- tbl(con, "flights")
 ```
 
 ``` r
-summary_2013 <- tbl(con, "flights") %>%
-  filter(year == 2013, origin %in% c("JFK", "LGA", "EWR")) %>% 
-  mutate(
-    on_time = dep_delay <= 15,
-    cancelled = is.na(dep_delay) & is.na(arr_delay)
-  ) %>%
-  group_by(origin) %>%
-  summarise(
-    n_flights      = n(),
-    avg_delay    = mean(dep_delay, na.rm = TRUE),
-    cancel_delay    = mean(cancelled, na.rm = TRUE),
-    on_time_rate    = mean(on_time, na.rm = TRUE)
-  ) %>%
-  arrange(avg_delay) %>%
-  collect()
-
-summary_2013
+dbGetQuery(con, "
+  SELECT origin,
+         COUNT(*) AS n_flights,
+         AVG(dep_delay) AS avg_delay,
+         AVG(CASE WHEN dep_delay IS NULL AND arr_delay IS NULL THEN 1 ELSE 0 END) AS cancel_rate,
+         AVG(CASE WHEN dep_delay <= 15 THEN 1 ELSE 0 END) AS on_time_rate
+  FROM flights
+  WHERE year = 2013
+    AND origin IN ('JFK', 'LGA', 'EWR')
+  GROUP BY origin
+  ORDER BY avg_delay;
+")
 ```
 
-    ## # A tibble: 3 × 5
-    ##   origin n_flights avg_delay cancel_delay on_time_rate
-    ##   <chr>    <int64>     <dbl>        <dbl>        <dbl>
-    ## 1 LGA       104662      10.0            0        0.817
-    ## 2 JFK       111279      11.9            0        0.796
-    ## 3 EWR       120835      14.7            0        0.760
+    ##   origin n_flights avg_delay cancel_rate on_time_rate
+    ## 1    LGA    104662   10.0352           0       0.8167
+    ## 2    JFK    111279   11.9094           0       0.7965
+    ## 3    EWR    120835   14.7030           0       0.7605
 
 Based on the 2013 data, I would choose to fly out of LaGuardia (LGA)
 airport out of all the airports in the NYC area. It had the highest
