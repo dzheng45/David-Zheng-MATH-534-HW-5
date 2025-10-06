@@ -1,3 +1,30 @@
+MATH 534 HW 5 Q3
+================
+David Zheng
+2025-10-5
+
+- [Domain problem formulation](#domain-problem-formulation)
+- [Data source overview](#data-source-overview)
+- [Step 1: Review background information](#sec-bg-info)
+  - [Data dictionary](#data-dictionary)
+- [Step 2: Loading in the data](#step-2-loading-in-the-data)
+- [Step 3: Examine the data and create action
+  items](#step-3-examine-the-data-and-create-action-items)
+  - [Finding invalid values](#finding-invalid-values)
+  - [\[problem-specific\] Checking COUNTRY and YEAR combinations are
+    unique](#problem-specific-checking-country-and-year-combinations-are-unique)
+  - [Examining missing values](#examining-missing-values)
+  - [Assessing Column names](#assessing-column-names)
+  - [Assessing variable type](#assessing-variable-type)
+  - [\[Exercise: to complete\] Examining data
+    completeness](#exercise-to-complete-examining-data-completeness)
+  - [\[problem-specific\] Checking the hierarchy of donor count
+    variables](#problem-specific-checking-the-hierarchy-of-donor-count-variables)
+- [Step 4: Clean and pre-process the
+  data](#step-4-clean-and-pre-process-the-data)
+  - [Checking the cleaned and pre-processed
+    data](#checking-the-cleaned-and-pre-processed-data)
+
 ## Domain problem formulation
 
 Our goal for this project is to understand global organ donation trends,
@@ -23,9 +50,11 @@ consider a version of the data that contains information up to 2017
 
 First, let’s load the libraries that we will use in this document.
 
-    # load the libraries we will need in this document
-    library(tidyverse)
-    library(naniar) # this is a nice package for visualizing missing data
+``` r
+# load the libraries we will need in this document
+library(tidyverse)
+library(naniar) # this is a nice package for visualizing missing data
+```
 
 The data is contained within the file
 `data/global-organ-donation_2018.csv`. The questionnaire on which the
@@ -39,76 +68,78 @@ document.
 For additional background information on this project and dataset and
 the project, see the relevant PCS documentation for this project.
 
--   *What does each variable measure?* A data dictionary is presented in
-    the subsection below.
+- *What does each variable measure?* A data dictionary is presented in
+  the subsection below.
 
--   *How was the data collected?* The website
-    (<http://www.transplant-observatory.org/methodology/>) from which we
-    downloaded the organ donation data states that the data is based on
-    a survey that began in 2007, and is sent annually via email to
-    “national focal points”. For countries that have a centralized organ
-    donation and transplantation organization, this information would
-    likely be much easier to obtain than for the countries that do not
-    have well-organized transplant systems (or which have multiple donor
-    organizations). A copy of the survey itself is provided in the
-    “data/documentation” folder[1]. Some questions that arise include:
-    Who were these survey forms sent to (e.g., who is the contact
-    point)? Which countries each country have a centralized organ
-    donation organization? Some reading online revealed a very wide
-    range of organ donation practices worldwide.
+- *How was the data collected?* The website
+  (<http://www.transplant-observatory.org/methodology/>) from which we
+  downloaded the organ donation data states that the data is based on a
+  survey that began in 2007, and is sent annually via email to “national
+  focal points”. For countries that have a centralized organ donation
+  and transplantation organization, this information would likely be
+  much easier to obtain than for the countries that do not have
+  well-organized transplant systems (or which have multiple donor
+  organizations). A copy of the survey itself is provided in the
+  “data/documentation” folder[^1]. Some questions that arise include:
+  Who were these survey forms sent to (e.g., who is the contact point)?
+  Which countries each country have a centralized organ donation
+  organization? Some reading online revealed a very wide range of organ
+  donation practices worldwide.
 
--   *What are the observational units?* To identify the observational
-    units, consider for what entities each full set of organ donation
-    measurements is collected. For the organ donation data, these are
-    the year and country combinations (a complete set of measurements
-    are taken for each country, every year), which we will call the
-    “country-years”.
+- *What are the observational units?* To identify the observational
+  units, consider for what entities each full set of organ donation
+  measurements is collected. For the organ donation data, these are the
+  year and country combinations (a complete set of measurements are
+  taken for each country, every year), which we will call the
+  “country-years”.
 
--   *Is the data relevant to my project?* Since this data is likely the
-    most comprehensive public global summary of organ donations
-    available, and since it covers a reasonably broad time period, this
-    data is certainly relevant to the project.
+- *Is the data relevant to my project?* Since this data is likely the
+  most comprehensive public global summary of organ donations available,
+  and since it covers a reasonably broad time period, this data is
+  certainly relevant to the project.
 
--   *What questions do I have and what assumptions am I making?* One
-    immediate *assumption* that we made when looking at the data was
-    that there exists a hierarchy for some of the variables. For
-    instance, the total number of deceased donors (`TOTAL Actual DD`)
-    appears to be broken down into brain-death deceased donors
-    (`Actual DBD`) and circulatory-death deceased donors (`Actual DCD`),
-    implying that these two sub-counts *should* add up to the total
-    count. After we loaded the data into R (in the next step), we
-    conducted some quick checks in the data to confirm that this is true
-    in all but a small number of rare cases.
+- *What questions do I have and what assumptions am I making?* One
+  immediate *assumption* that we made when looking at the data was that
+  there exists a hierarchy for some of the variables. For instance, the
+  total number of deceased donors (`TOTAL Actual DD`) appears to be
+  broken down into brain-death deceased donors (`Actual DBD`) and
+  circulatory-death deceased donors (`Actual DCD`), implying that these
+  two sub-counts *should* add up to the total count. After we loaded the
+  data into R (in the next step), we conducted some quick checks in the
+  data to confirm that this is true in all but a small number of rare
+  cases.
 
 ### Data dictionary
 
 The data dictionary we found on the website at the time of data
 collection is printed below:
 
-    REGION: the global region in which the country lies
-    COUNTRY: the name of the country for which the data is collected
-    REPORTYEAR: the year for which the data is collected
-    POPULATION: the population of the country for the given year
-    TOTAL Actual DD: total number of deceased organ donors
-    Actual DBD: number of deceased organ donors after brain death
-    Actual DCD: number of deceased organ donors after circulatory death
-    Total Utilized DD: total number of utilized deceased organ donors
-    Utilized DBD: number of utilized deceased organ donors after brain death
-    Utilized DCD: number of utilized deceased organ donors after circulatory death
-    DD Kidney Tx: number of kidneys from deceased donors
-    LD Kidney Tx: number of kidneys from living donors
-    TOTAL Kidney Tx: total number of kidneys from all donors
-    DD Liver Tx: number of livers from deceased donors
-    DOMINO Liver Tx: number of domino livers
-    LD Liver Tx: number of livers from living donors
-    TOTAL Liver Tx: total number of livers from all donors
-    TOTAL Heart: total number of hearts from all donors
-    DD Lung Tx: number of lungs from deceased donors
-    LD Lung Tx: number of lungs from living donors
-    TOTAL Lung Tx: total number of lungs from all donors
-    Pancreas Tx: total number of pancreases from all donors
-    Kidney Pancreas Tx: total number of kidney-pancreases from all donors
-    Small Bowel Tx: total number of small bowels from all donors
+``` rmarkdown
+REGION: the global region in which the country lies
+COUNTRY: the name of the country for which the data is collected
+REPORTYEAR: the year for which the data is collected
+POPULATION: the population of the country for the given year
+TOTAL Actual DD: total number of deceased organ donors
+Actual DBD: number of deceased organ donors after brain death
+Actual DCD: number of deceased organ donors after circulatory death
+Total Utilized DD: total number of utilized deceased organ donors
+Utilized DBD: number of utilized deceased organ donors after brain death
+Utilized DCD: number of utilized deceased organ donors after circulatory death
+DD Kidney Tx: number of kidneys from deceased donors
+LD Kidney Tx: number of kidneys from living donors
+TOTAL Kidney Tx: total number of kidneys from all donors
+DD Liver Tx: number of livers from deceased donors
+DOMINO Liver Tx: number of domino livers
+LD Liver Tx: number of livers from living donors
+TOTAL Liver Tx: total number of livers from all donors
+TOTAL Heart: total number of hearts from all donors
+DD Lung Tx: number of lungs from deceased donors
+LD Lung Tx: number of lungs from living donors
+TOTAL Lung Tx: total number of lungs from all donors
+Pancreas Tx: total number of pancreases from all donors
+Kidney Pancreas Tx: total number of kidney-pancreases from all donors
+Small Bowel Tx: total number of small bowels from all donors
+```
 
 Some questions that immediately arise include what does it mean for an
 organ donor to be *“utilized”*? Does this imply that not all donated
@@ -116,11 +147,11 @@ organs are used? After much scouring GODT resources, we eventually found
 this definition in the following pdf
 (<https://tts.org/images/GODT/2020-Global-report-para-web-1.pdf>):
 
--   “Actual deceased donor”: Deceased person from whom at least one
-    organ has been recovered for the purpose of transplantation.
+- “Actual deceased donor”: Deceased person from whom at least one organ
+  has been recovered for the purpose of transplantation.
 
--   “Utilized deceased donor”: An actual donor from whom at least one
-    organ has been transplanted.
+- “Utilized deceased donor”: An actual donor from whom at least one
+  organ has been transplanted.
 
 That is, an organ from an “actual deceased donor” has been recovered for
 the purpose of transplantation, but may not actually end up being
@@ -131,10 +162,18 @@ Our gut feeling is that we should use the `TOTAL Actual DD` variable,
 rather than the `Total Utilized DD` variable, but it will be helpful to
 identify how similar/different these two variables are:
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Question: What proportion of deceased donors are “utilized” deceased
 donors?**
 
+</div>
+
 Do most organs recovered for transplantation actually get transplanted?
+
+</div>
 
 We will answer this question in our explorations below.
 
@@ -150,16 +189,20 @@ mess up the formatting of the remaining non-missing values in these
 columns because they did not fit the presumed type). For this reason, we
 provided a `col_types` argument to `read_csv()`.
 
-    organs_original <- read_csv("/Users/dzheng46/Documents/MATH_534_Materials/global-organ-donation_2018.csv", 
-                                col_types = list(`Utilized DBD` = col_number(),
-                                                 `DD Lung Tx` = col_number(),
-                                                 `Total Utilized DD` = col_number(),
-                                                 `LD Lung Tx` = col_number())) 
+``` r
+organs_original <- read_csv("/Users/dzheng46/Documents/MATH_534_Materials/global-organ-donation_2018.csv", 
+                            col_types = list(`Utilized DBD` = col_number(),
+                                             `DD Lung Tx` = col_number(),
+                                             `Total Utilized DD` = col_number(),
+                                             `LD Lung Tx` = col_number())) 
+```
 
 Below, we print the data column names and notice that they match the
 names presented in the data dictionary.
 
-    colnames(organs_original)
+``` r
+colnames(organs_original)
+```
 
     ##  [1] "REGION"             "COUNTRY"            "REPORTYEAR"        
     ##  [4] "POPULATION"         "TOTAL Actual DD"    "Actual DBD"        
@@ -176,7 +219,9 @@ first 20 rows*. We checked the data manually to make sure that this was
 not a data loading error, and it does seem that the data has been loaded
 in correctly.
 
-    head(organs_original, n = 20)
+``` r
+head(organs_original, n = 20)
+```
 
     ## # A tibble: 20 × 24
     ##    REGION           COUNTRY REPORTYEAR POPULATION `TOTAL Actual DD` `Actual DBD`
@@ -211,9 +256,11 @@ in correctly.
 
 We also print a *random* sample of 20 rows from the data below.
 
-    set.seed(45219)
-    organs_original |>
-      sample_n(size = 20) 
+``` r
+set.seed(45219)
+organs_original |>
+  sample_n(size = 20) 
+```
 
     ## # A tibble: 20 × 24
     ##    REGION           COUNTRY REPORTYEAR POPULATION `TOTAL Actual DD` `Actual DBD`
@@ -248,7 +295,9 @@ We also print a *random* sample of 20 rows from the data below.
 
 Next, we check the dimension of the data.
 
-    dim(organs_original)
+``` r
+dim(organs_original)
+```
 
     ## [1] 3165   24
 
@@ -256,8 +305,10 @@ The above code shows that there are 3,165 rows. As a sanity check, this
 number should probably be divisible by the number of countries in the
 data. The number of countries in the data is:
 
-    organs_original |> 
-      summarise(n_distinct(COUNTRY))
+``` r
+organs_original |> 
+  summarise(n_distinct(COUNTRY))
+```
 
     ## # A tibble: 1 × 1
     ##   `n_distinct(COUNTRY)`
@@ -266,24 +317,34 @@ data. The number of countries in the data is:
 
 But 3,165 is *not* divisible by 194:
 
-    3165 / 194
+``` r
+3165 / 194
+```
 
     ## [1] 16.31443
 
 Moreover, if the survey started in 2007 and we have data up to the year
-2017 (11 years total), then we should have 11 × 194 = 2, 134 rows in the
-data. Clearly, *something* is wrong. At this stage, we don’t know what
-is wrong but will make a note to ensure that we figure out what is going
-on. If by the end of the evaluations that we will conduct below, we
-haven’t figured it out, then we will do some specific explorations to
+2017 (11 years total), then we should have $11 \times 194 = 2,134$ rows
+in the data. Clearly, *something* is wrong. At this stage, we don’t know
+what is wrong but will make a note to ensure that we figure out what is
+going on. If by the end of the evaluations that we will conduct below,
+we haven’t figured it out, then we will do some specific explorations to
 try and understand why.
+
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
 
 **Question: Why does the number of rows in the data not match what we
 expect?**
 
+</div>
+
 The number of rows in the data are not divisible by the number of
 countries, which is a bit strange, since we would have assumed that each
 country would have contributed the same number of rows to the data.
+
+</div>
 
 To determine the ways in which the data needs to be cleaned, we will
 follow the suggestions provided in Chapter 5 of Veridical Data Science.
@@ -299,14 +360,16 @@ the data, following the workflow outlined in Chapter 5.
 Below, we print out the smallest (minimum) and largest (maximum), and
 average values of each numeric column.
 
-    organs_original |> 
-      # keep only numeric variables
-      select(where(is.numeric)) |> 
-      # for each column, compute a data frame with the min, mean, and max.
-      map_df(function(.col) { data.frame(min = min(.col, na.rm = TRUE),
-                                         mean = mean(.col, na.rm = TRUE),
-                                         max = max(.col, na.rm = TRUE)) },
-             .id = "variable")
+``` r
+organs_original |> 
+  # keep only numeric variables
+  select(where(is.numeric)) |> 
+  # for each column, compute a data frame with the min, mean, and max.
+  map_df(function(.col) { data.frame(min = min(.col, na.rm = TRUE),
+                                     mean = mean(.col, na.rm = TRUE),
+                                     max = max(.col, na.rm = TRUE)) },
+         .id = "variable")
+```
 
     ##              variable  min         mean     max
     ## 1          REPORTYEAR 2000 2007.7102686  2017.0
@@ -346,16 +409,18 @@ of a person?).
 The table below shows the average recorded population for a sample of 20
 countries.
 
-    set.seed(45219)
-    organs_original |>
-      # for each country
-      group_by(COUNTRY) |>
-      # compute the average population
-      summarise(POPULATION = mean(POPULATION)) |>
-      ungroup() |>
-      sample_n(20) |>
-      # arrange the rows alphabetically
-      arrange(COUNTRY)
+``` r
+set.seed(45219)
+organs_original |>
+  # for each country
+  group_by(COUNTRY) |>
+  # compute the average population
+  summarise(POPULATION = mean(POPULATION)) |>
+  ungroup() |>
+  sample_n(20) |>
+  # arrange the rows alphabetically
+  arrange(COUNTRY)
+```
 
     ## # A tibble: 20 × 2
     ##    COUNTRY                               POPULATION
@@ -390,18 +455,32 @@ So that the population variable is as transparent as possible, we will
 note a cleaning action item to be included in our final cleaning
 function.
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Data cleaning action item: Multiply the population variable by 1
 million**
+
+</div>
 
 Multiply the population variable by 1 million. We won’t worry about the
 rounding error, but note that these population values are far from
 exact.
 
+</div>
+
 Taking another look at the first 20 rows printed in the table above (in
 the data loading section), we also notice that the year pre-dates 2007,
 which was when the survey supposedly began.
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Question: Why does the data contain years pre-2007**
+
+</div>
 
 The data contains information prior to 2007, which was when the data
 collection survey supposedly began. Why is this the case? We couldn’t
@@ -409,25 +488,37 @@ find information online to answer this question, but perhaps this is due
 to back-reporting (i.e. countries providing historical data), or perhaps
 it is a mistake in the documentation.
 
+</div>
+
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Data cleaning action item: Add an option to remove the pre-2007 data**
+
+</div>
 
 We want to have an option in our cleaning function to remove the
 pre-2007 data, but the default option will be to keep it.
+
+</div>
 
 To investigate if there are any strange values in the `TOTAL Actual DD`
 variable, the figure below displays a histogram of the `TOTAL Actual DD`
 variable.
 
-    organs_original |>
-      ggplot() +
-      geom_histogram(aes(x = `TOTAL Actual DD`))
+``` r
+organs_original |>
+  ggplot() +
+  geom_histogram(aes(x = `TOTAL Actual DD`))
+```
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
     ## Warning: Removed 1875 rows containing non-finite outside the scale range
     ## (`stat_bin()`).
 
-![](David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/unnamed-chunk-8-1.png)
+![](David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 The distribution is heavily skewed with a lot of 0s, but nothing looks
 particularly unusual.
@@ -439,21 +530,23 @@ times (rows in which) the total donor count exceeds the population and
 the number of times the total donor count is exceeded by the relevant
 sub-count. We would expect each of these sums to be equal to 0.
 
-    organs_original |>
-      summarise(donor_vs_pop = sum(`TOTAL Actual DD` > POPULATION * 1000000,
-                                   na.rm = TRUE),
-                donor_vs_dcd = sum(`TOTAL Actual DD` < `Actual DCD`,
-                                   na.rm = TRUE),
-                donor_vs_dbd = sum(`TOTAL Actual DD` < `Actual DBD`,
-                                   na.rm = TRUE),
-                donor_vs_utilized = sum(`TOTAL Actual DD` < `Total Utilized DD`,
-                                        na.rm = TRUE),
-                donor_vs_kidney = sum(`TOTAL Actual DD` < `TOTAL Kidney Tx`,
-                                      na.rm = TRUE),
-                donor_vs_liver = sum(`TOTAL Actual DD` < `TOTAL Liver TX`,
-                                      na.rm = TRUE),
-                donor_vs_heart = sum(`TOTAL Actual DD` < `Total Heart`,
-                                      na.rm = TRUE))
+``` r
+organs_original |>
+  summarise(donor_vs_pop = sum(`TOTAL Actual DD` > POPULATION * 1000000,
+                               na.rm = TRUE),
+            donor_vs_dcd = sum(`TOTAL Actual DD` < `Actual DCD`,
+                               na.rm = TRUE),
+            donor_vs_dbd = sum(`TOTAL Actual DD` < `Actual DBD`,
+                               na.rm = TRUE),
+            donor_vs_utilized = sum(`TOTAL Actual DD` < `Total Utilized DD`,
+                                    na.rm = TRUE),
+            donor_vs_kidney = sum(`TOTAL Actual DD` < `TOTAL Kidney Tx`,
+                                  na.rm = TRUE),
+            donor_vs_liver = sum(`TOTAL Actual DD` < `TOTAL Liver TX`,
+                                  na.rm = TRUE),
+            donor_vs_heart = sum(`TOTAL Actual DD` < `Total Heart`,
+                                  na.rm = TRUE))
+```
 
     ## # A tibble: 1 × 7
     ##   donor_vs_pop donor_vs_dcd donor_vs_dbd donor_vs_utilized donor_vs_kidney
@@ -479,11 +572,13 @@ data and shows the distinct counts. Since the only entry is 1, this
 implies that each country-year combination only appears once in the
 data, which is good.
 
-    organs_original |>
-      # count the number of unique country-reportyear combinations
-      count(COUNTRY, REPORTYEAR) |>
-      # show just the distinct counts
-      distinct(n)
+``` r
+organs_original |>
+  # count the number of unique country-reportyear combinations
+  count(COUNTRY, REPORTYEAR) |>
+  # show just the distinct counts
+  distinct(n)
+```
 
     ## # A tibble: 1 × 1
     ##       n
@@ -499,15 +594,17 @@ sure, we will plot a histogram of a few of the variables.
 @tbl-missing-cols shows the number and proportion of missing rows in
 each column, arranged in order of least to most missingness.
 
-    organs_original |> 
-      # for each column, count the number of entries that are equal to NA
-      summarise(across(everything(), ~sum(is.na(.)))) |>
-      # convert the result to a "long-form" data frame
-      pivot_longer(everything(), names_to = "variable", values_to = "missing_rows") |>
-      # add a column corresponding to the *proportion* of missing values
-      mutate(prop_missing = missing_rows / nrow(organs_original)) |>
-      # arrange the rows in increasing order of missingness
-      arrange(missing_rows)
+``` r
+organs_original |> 
+  # for each column, count the number of entries that are equal to NA
+  summarise(across(everything(), ~sum(is.na(.)))) |>
+  # convert the result to a "long-form" data frame
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_rows") |>
+  # add a column corresponding to the *proportion* of missing values
+  mutate(prop_missing = missing_rows / nrow(organs_original)) |>
+  # arrange the rows in increasing order of missingness
+  arrange(missing_rows)
+```
 
     ## # A tibble: 24 × 3
     ##    variable        missing_rows prop_missing
@@ -532,13 +629,15 @@ of interest) are missing!
 @fig-missing shows the distribution of missing data across the entire
 dataset (using the `vis_miss()` function from the `naniar` R package).
 
-    vis_miss(organs_original) +
-      # rotate the variable names 90 degrees
-      theme(axis.text.x = element_text(angle = 90))
+``` r
+vis_miss(organs_original) +
+  # rotate the variable names 90 degrees
+  theme(axis.text.x = element_text(angle = 90))
+```
 
 <figure>
 <img
-src="David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/fig-missing-1.png"
+src="David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/fig-missing-1.png"
 alt="A heatmap showing the distribution of missing data in the original organ donations dataset" />
 <figcaption aria-hidden="true">A heatmap showing the distribution of
 missing data in the original organ donations dataset</figcaption>
@@ -550,18 +649,20 @@ Clearly, the earlier years (especially pre-2007!) have more missing
 values than the later years, but the missingness starts to increase
 again after 2014, which seems odd.
 
-    organs_original |>
-      # for each reportyear
-      group_by(REPORTYEAR) |>
-      # count the number of times the TOTAL Actual DD variable is *not* missing
-      summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |>
-      # plot the number of non-missing values each year using a bar plot
-      ggplot() +
-      geom_col(aes(x = REPORTYEAR, y = non_missing))
+``` r
+organs_original |>
+  # for each reportyear
+  group_by(REPORTYEAR) |>
+  # count the number of times the TOTAL Actual DD variable is *not* missing
+  summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |>
+  # plot the number of non-missing values each year using a bar plot
+  ggplot() +
+  geom_col(aes(x = REPORTYEAR, y = non_missing))
+```
 
 <figure>
 <img
-src="David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/fig-missing-proportions-1.png"
+src="David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/fig-missing-proportions-1.png"
 alt="The number of non-missing TOTAL Actual DD values by year. There are a total of 194 countries, so if there was no missing data, each bar would reach a height of 194." />
 <figcaption aria-hidden="true">The number of non-missing TOTAL Actual DD
 values by year. There are a total of 194 countries, so if there was no
@@ -578,16 +679,18 @@ seems to be a really big range of missingness patterns across the
 countries! Some countries report literally no data, whereas others
 report data for 5, 10, or 13 years.
 
-    set.seed(45219)
-    organs_original |>
-      # for each country
-      group_by(COUNTRY) |>
-      # count the number of times the TOTAL Actual DD variable is *not* missing
-      summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |> 
-      # take a random sample of 20 countries
-      sample_n(20) |>
-      # arrange in alphabetical order
-      arrange(COUNTRY)
+``` r
+set.seed(45219)
+organs_original |>
+  # for each country
+  group_by(COUNTRY) |>
+  # count the number of times the TOTAL Actual DD variable is *not* missing
+  summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |> 
+  # take a random sample of 20 countries
+  sample_n(20) |>
+  # arrange in alphabetical order
+  arrange(COUNTRY)
+```
 
     ## # A tibble: 20 × 2
     ##    COUNTRY                               non_missing
@@ -616,19 +719,21 @@ report data for 5, 10, or 13 years.
 Let’s visualize the distribution of non-missing data by country in
 @fig-country-non-missing.
 
-    organs_original |>
-      # for each country
-      group_by(COUNTRY) |>
-      # count the number of times the TOTAL Actual DD variable is *not* missing
-      summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |>
-      # plot the distribution of the country missing value counts
-      ggplot() +
-      geom_histogram(aes(x = non_missing), 
-                     binwidth = 1, color = "white")
+``` r
+organs_original |>
+  # for each country
+  group_by(COUNTRY) |>
+  # count the number of times the TOTAL Actual DD variable is *not* missing
+  summarise(non_missing = sum(!is.na(`TOTAL Actual DD`))) |>
+  # plot the distribution of the country missing value counts
+  ggplot() +
+  geom_histogram(aes(x = non_missing), 
+                 binwidth = 1, color = "white")
+```
 
 <figure>
 <img
-src="David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/fig-country-non-missing-1.png"
+src="David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/fig-country-non-missing-1.png"
 alt="The distribution of the number of non-missing TOTAL Actual DD values reported for each country" />
 <figcaption aria-hidden="true">The distribution of the number of
 non-missing TOTAL Actual DD values reported for each
@@ -646,9 +751,11 @@ report data for just *some* of the years.
 @tbl-austria shows the `TOTAL Actual DD` counts for Austria, which had
 non-missing values for every year.
 
-    organs_original |> 
-      filter(COUNTRY == "Austria") |> 
-      select(COUNTRY, REPORTYEAR, `TOTAL Actual DD`)
+``` r
+organs_original |> 
+  filter(COUNTRY == "Austria") |> 
+  select(COUNTRY, REPORTYEAR, `TOTAL Actual DD`)
+```
 
     ## # A tibble: 18 × 3
     ##    COUNTRY REPORTYEAR `TOTAL Actual DD`
@@ -675,9 +782,11 @@ non-missing values for every year.
 @tbl-peru, however, shows the results for Peru, which has data for 10 of
 the 18 years
 
-    organs_original |> 
-      filter(COUNTRY == "Peru") |> 
-      select(COUNTRY, REPORTYEAR, `TOTAL Actual DD`)
+``` r
+organs_original |> 
+  filter(COUNTRY == "Peru") |> 
+  select(COUNTRY, REPORTYEAR, `TOTAL Actual DD`)
+```
 
     ## # A tibble: 18 × 3
     ##    COUNTRY REPORTYEAR `TOTAL Actual DD`
@@ -715,17 +824,17 @@ imputation will be an optional pre-processing action item.
 Some reasonable action items for dealing with the missingness might be
 to replace each missing count for each country with:
 
--   The *average* of the two surrounding non-missing values from the
-    country.
+- The *average* of the two surrounding non-missing values from the
+  country.
 
--   The *closest* (in terms of year) non-missing value from the country.
-    If the missing value is equidistant between two non-missing years,
-    we could choose one at random.
+- The *closest* (in terms of year) non-missing value from the country.
+  If the missing value is equidistant between two non-missing years, we
+  could choose one at random.
 
--   The *previous* non-missing value from the country.
+- The *previous* non-missing value from the country.
 
--   An *interpolated* value that takes into account the trend from all
-    of the non-missing values from the country.
+- An *interpolated* value that takes into account the trend from all of
+  the non-missing values from the country.
 
 For the countries that do not report *any* donor counts (i.e., all their
 data is missing), we will impute their donor counts with 0. Here we are
@@ -736,18 +845,26 @@ countries that do have an organ donor system but chose not to report any
 data to the GODT, but since this data does not exist in the public
 domain, there is nothing else that we can really do about it.
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Pre-processing action item: Impute the donor count variable**
+
+</div>
 
 There are several judgment call options that seem reasonable for
 creating imputed donor count variables, including:
 
--   The *average* of the two surrounding non-missing values from the
-    country.
+- The *average* of the two surrounding non-missing values from the
+  country.
 
--   The *previous* non-missing value from the country.
+- The *previous* non-missing value from the country.
 
 For the countries that do not report *any* donor counts (i.e., all their
 data is missing), we will impute their donor counts with 0.
+
+</div>
 
 Other options include imputing using the *closest* (in terms of year)
 non-missing value from the country and using an *interpolated* value
@@ -767,73 +884,77 @@ yet for the “interpolated” imputation approach), but we show it here as
 an example of a sophisticated function with many options. You aren’t
 expected to write something like this yourself at this stage.
 
-    # function for conducting the imputation of a specified feature
-    imputeFeature <- function(.data,
-                              .feature,
-                              .group,
-                              .impute_method = c("average", "previous")) {
-      # identify which imputation method is being used
-      .impute_method <- match.arg(.impute_method)
-      
-      if (.impute_method == "previous") {
-        .data <- .data |>
-          # duplicate the relevant column and call it "feature_imputed"
-          # this {{ }} notation is "tidy eval" - it allows us to pass unquoted 
-          # variable names
-          mutate(feature_imputed = {{ .feature }}) |>
-          # for each .group (country)
-          group_by({{ .group }}) |>
-          # use the fill function from the tidyr package (part of the tidyverse)
-          # to impute the relevant feature
-          fill(feature_imputed, .direction = "down") |>
-          ungroup() |>
-          # for entries whose values are still missing (e.g., countries with no 
-          # data reported), fill the missing value with 0
-          mutate(feature_imputed = if_else(is.na(feature_imputed), 0, feature_imputed))
-      } else if (.impute_method == "average") {
-        .data <- .data |>
-          # duplicate the relevant column two times and call these duplicates
-          # "feature_imputed_tmp_prev" and "feature_imputed_tmp_next"
-          # we will fill the missing values in these columns with the previous and 
-          # next non-missing values respectively
-          # this {{ }} notation is "tidy eval" - it allows us to pass unquoted 
-          # variable names
-          mutate(imputed_feature_tmp_prev = {{ .feature }},
-                 imputed_feature_tmp_next = {{ .feature }}) |>
-          # for each .group (country)
-          group_by({{ .group }}) |>
-          # use the fill function to impute the missing values with previous 
-          # non-missing value 
-          fill(imputed_feature_tmp_prev, .direction = "down") |>
-          # use the fill function to impute the missing values with next 
-          # non-missing value
-          fill(imputed_feature_tmp_next, .direction = "up") |>
-          ungroup() |>
-          # compute the imputation as the average of the previous and next imputed 
-          # value for each row.
-          rowwise() |>
-          mutate(feature_imputed = mean(c(imputed_feature_tmp_next, 
-                                        imputed_feature_tmp_prev), na.rm = T)) |>
-          # for entries whose values are still missing (e.g., countries with no 
-          # data reported), fill the missing value with 0
-          mutate(feature_imputed = if_else(is.nan(feature_imputed), 0, feature_imputed)) |>
-          # remove the two prev, next columns
-          select(-imputed_feature_tmp_prev, -imputed_feature_tmp_next)
-      }
-      # return just the imputed feature
-      return(pull(.data, feature_imputed))
-    }
+``` r
+# function for conducting the imputation of a specified feature
+imputeFeature <- function(.data,
+                          .feature,
+                          .group,
+                          .impute_method = c("average", "previous")) {
+  # identify which imputation method is being used
+  .impute_method <- match.arg(.impute_method)
+  
+  if (.impute_method == "previous") {
+    .data <- .data |>
+      # duplicate the relevant column and call it "feature_imputed"
+      # this {{ }} notation is "tidy eval" - it allows us to pass unquoted 
+      # variable names
+      mutate(feature_imputed = {{ .feature }}) |>
+      # for each .group (country)
+      group_by({{ .group }}) |>
+      # use the fill function from the tidyr package (part of the tidyverse)
+      # to impute the relevant feature
+      fill(feature_imputed, .direction = "down") |>
+      ungroup() |>
+      # for entries whose values are still missing (e.g., countries with no 
+      # data reported), fill the missing value with 0
+      mutate(feature_imputed = if_else(is.na(feature_imputed), 0, feature_imputed))
+  } else if (.impute_method == "average") {
+    .data <- .data |>
+      # duplicate the relevant column two times and call these duplicates
+      # "feature_imputed_tmp_prev" and "feature_imputed_tmp_next"
+      # we will fill the missing values in these columns with the previous and 
+      # next non-missing values respectively
+      # this {{ }} notation is "tidy eval" - it allows us to pass unquoted 
+      # variable names
+      mutate(imputed_feature_tmp_prev = {{ .feature }},
+             imputed_feature_tmp_next = {{ .feature }}) |>
+      # for each .group (country)
+      group_by({{ .group }}) |>
+      # use the fill function to impute the missing values with previous 
+      # non-missing value 
+      fill(imputed_feature_tmp_prev, .direction = "down") |>
+      # use the fill function to impute the missing values with next 
+      # non-missing value
+      fill(imputed_feature_tmp_next, .direction = "up") |>
+      ungroup() |>
+      # compute the imputation as the average of the previous and next imputed 
+      # value for each row.
+      rowwise() |>
+      mutate(feature_imputed = mean(c(imputed_feature_tmp_next, 
+                                    imputed_feature_tmp_prev), na.rm = T)) |>
+      # for entries whose values are still missing (e.g., countries with no 
+      # data reported), fill the missing value with 0
+      mutate(feature_imputed = if_else(is.nan(feature_imputed), 0, feature_imputed)) |>
+      # remove the two prev, next columns
+      select(-imputed_feature_tmp_prev, -imputed_feature_tmp_next)
+  }
+  # return just the imputed feature
+  return(pull(.data, feature_imputed))
+}
+```
 
 We can compare the first 20 original and imputed TOTAL Actual DD donor
 counts using:
 
-    organs_original |>
-      transmute(COUNTRY, REPORTYEAR, `TOTAL Actual DD`,
-                imputed_donors = imputeFeature(.data = organs_original, 
-                                               .feature = `TOTAL Actual DD`, 
-                                               .group = COUNTRY, 
-                                               .impute_method = "average")) |>
-      head(20)
+``` r
+organs_original |>
+  transmute(COUNTRY, REPORTYEAR, `TOTAL Actual DD`,
+            imputed_donors = imputeFeature(.data = organs_original, 
+                                           .feature = `TOTAL Actual DD`, 
+                                           .group = COUNTRY, 
+                                           .impute_method = "average")) |>
+  head(20)
+```
 
     ## # A tibble: 20 × 4
     ##    COUNTRY                REPORTYEAR `TOTAL Actual DD` imputed_donors
@@ -864,125 +985,48 @@ counts using:
 The column names in this dataset are a mess! Let’s add an action item to
 clean them so that they are tidily formatted and human-readable.
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Data cleaning action item: Clean the column names**
+
+</div>
 
 Rename the columns so that they are consistently formatted, with
 underscore-separated words and human readable. Since we want to change
 the names of the variables themselves, we will do this manually.
 
+</div>
+
 The table below displays the column name conversion:
 
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">New variable name</th>
-<th style="text-align: left;">Original variable name</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>region</code></td>
-<td style="text-align: left;"><code>REGION</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>country</code></td>
-<td style="text-align: left;"><code>COUNTRY</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>year</code></td>
-<td style="text-align: left;"><code>REPORTYEAR</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>population</code></td>
-<td style="text-align: left;"><code>POPULATION</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_deceased_donors</code></td>
-<td style="text-align: left;"><code>TOTAL Actual DD</code></td>
-</tr>
-<tr>
-<td
-style="text-align: left;"><code>deceased_donors_brain_death</code></td>
-<td style="text-align: left;"><code>Actual DBD</code></td>
-</tr>
-<tr>
-<td
-style="text-align: left;"><code>deceased_donors_circulatory_death</code></td>
-<td style="text-align: left;"><code>Actual DCD</code></td>
-</tr>
-<tr>
-<td
-style="text-align: left;"><code>total_utilized_deceased_donors</code></td>
-<td style="text-align: left;"><code>Total Utilized DD</code></td>
-</tr>
-<tr>
-<td
-style="text-align: left;"><code>utilized_deceased_donors_brain_death</code></td>
-<td style="text-align: left;"><code>Utilized DBD</code></td>
-</tr>
-<tr>
-<td
-style="text-align: left;"><code>utilized_deceased_donors_circulatory_death</code></td>
-<td style="text-align: left;"><code>Utilized DCD</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>deceased_kidney_tx</code></td>
-<td style="text-align: left;"><code>DD Kidney Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>living_kidney_tx</code></td>
-<td style="text-align: left;"><code>LD Kidney Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_kidney_tx</code></td>
-<td style="text-align: left;"><code>TOTAL Kidney Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>deceased_liver_tx</code></td>
-<td style="text-align: left;"><code>DD Liver Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>living_liver_tx</code></td>
-<td style="text-align: left;"><code>LD Liver Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>domino_liver_tx</code></td>
-<td style="text-align: left;"><code>DOMINO Liver Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_liver_tx</code></td>
-<td style="text-align: left;"><code>TOTAL Liver TX</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_heart_tx</code></td>
-<td style="text-align: left;"><code>Total Heart</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>deceased_lung_tx</code></td>
-<td style="text-align: left;"><code>DD Lung Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>living_lung_tx</code></td>
-<td style="text-align: left;"><code>DD Lung Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_lung_tx</code></td>
-<td style="text-align: left;"><code>TOTAL Lung Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_pancreas_tx</code></td>
-<td style="text-align: left;"><code>Pancreas Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_kidney_pancreas_tx</code></td>
-<td style="text-align: left;"><code>Kidney Pancreas Tx</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>total_small_bowel_tx</code></td>
-<td style="text-align: left;"><code>Small Bowel Tx</code></td>
-</tr>
-</tbody>
-</table>
+| New variable name                            | Original variable name |
+|:---------------------------------------------|:-----------------------|
+| `region`                                     | `REGION`               |
+| `country`                                    | `COUNTRY`              |
+| `year`                                       | `REPORTYEAR`           |
+| `population`                                 | `POPULATION`           |
+| `total_deceased_donors`                      | `TOTAL Actual DD`      |
+| `deceased_donors_brain_death`                | `Actual DBD`           |
+| `deceased_donors_circulatory_death`          | `Actual DCD`           |
+| `total_utilized_deceased_donors`             | `Total Utilized DD`    |
+| `utilized_deceased_donors_brain_death`       | `Utilized DBD`         |
+| `utilized_deceased_donors_circulatory_death` | `Utilized DCD`         |
+| `deceased_kidney_tx`                         | `DD Kidney Tx`         |
+| `living_kidney_tx`                           | `LD Kidney Tx`         |
+| `total_kidney_tx`                            | `TOTAL Kidney Tx`      |
+| `deceased_liver_tx`                          | `DD Liver Tx`          |
+| `living_liver_tx`                            | `LD Liver Tx`          |
+| `domino_liver_tx`                            | `DOMINO Liver Tx`      |
+| `total_liver_tx`                             | `TOTAL Liver TX`       |
+| `total_heart_tx`                             | `Total Heart`          |
+| `deceased_lung_tx`                           | `DD Lung Tx`           |
+| `living_lung_tx`                             | `DD Lung Tx`           |
+| `total_lung_tx`                              | `TOTAL Lung Tx`        |
+| `total_pancreas_tx`                          | `Pancreas Tx`          |
+| `total_kidney_pancreas_tx`                   | `Kidney Pancreas Tx`   |
+| `total_small_bowel_tx`                       | `Small Bowel Tx`       |
 
 We will officially only change the column names when we actually clean
 our data below, so the remaining explorations until then will still use
@@ -992,11 +1036,13 @@ the original column names.
 
 The table below prints out the class/type of each column in the data.
 
-    organs_original |>
-      # for each column, compute the class
-      map_chr(class) |>
-      # convert the named character vector to a data frame
-      enframe()
+``` r
+organs_original |>
+  # for each column, compute the class
+  map_chr(class) |>
+  # convert the named character vector to a data frame
+  enframe()
+```
 
     ## # A tibble: 24 × 2
     ##    name              value    
@@ -1029,11 +1075,13 @@ The table below shows the number of rows for each 20 randomly chosen
 countries. There are clearly NOT 18 rows for every country! In fact,
 there are almost never 18 rows for every country.
 
-    set.seed(45219)
-    organs_original |>
-      group_by(COUNTRY) |>
-      summarise(rows = n()) |>
-      sample_n(20)
+``` r
+set.seed(45219)
+organs_original |>
+  group_by(COUNTRY) |>
+  summarise(rows = n()) |>
+  sample_n(20)
+```
 
     ## # A tibble: 20 × 2
     ##    COUNTRY                                rows
@@ -1068,37 +1116,49 @@ with the number of rows each year. Does something change around 2015?
 To get you started, here is a bar chart counting the number of rows in
 the data for each year.
 
-    organs_original |>
-      group_by(REPORTYEAR) |>
-      summarise(n = n()) |>
-      ggplot() +
-      geom_col(aes(x = REPORTYEAR, y = n)) 
+``` r
+organs_original |>
+  group_by(REPORTYEAR) |>
+  summarise(n = n()) |>
+  ggplot() +
+  geom_col(aes(x = REPORTYEAR, y = n)) 
+```
 
-![](David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/unnamed-chunk-15-1.png)
+![](David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
 One exploration idea is to modify the code above to overlay another bar
 chart (using a different color) of the number of non-missing
 `TOTAL Actual DD` counts.
 
+<div class="blackbox" data-latex="">
+
+<div class="center" data-latex="">
+
 **Data cleaning action item: Complete the data**
+
+</div>
 
 Complete the data by adding in the missing rows and filling them with NA
 values. This should be done *prior* to missing value imputation so that
 the missing values we create are filled in during imputation.
 
-    library(tidyverse)
+</div>
 
-    by_year <- organs_original %>%
-      group_by(REPORTYEAR) %>%
-      summarise(
-        n_rows        = n(),
-        n_non_missing = sum(!is.na(`TOTAL Actual DD`)),
-        prop_non_missing = n_non_missing / n_rows,
-        .groups = "drop"
-      ) %>%
-      arrange(REPORTYEAR)
+``` r
+library(tidyverse)
 
-    by_year
+by_year <- organs_original %>%
+  group_by(REPORTYEAR) %>%
+  summarise(
+    n_rows        = n(),
+    n_non_missing = sum(!is.na(`TOTAL Actual DD`)),
+    prop_non_missing = n_non_missing / n_rows,
+    .groups = "drop"
+  ) %>%
+  arrange(REPORTYEAR)
+
+by_year
+```
 
     ## # A tibble: 18 × 4
     ##    REPORTYEAR n_rows n_non_missing prop_non_missing
@@ -1122,33 +1182,37 @@ the missing values we create are filled in during imputation.
     ## 17       2016     80            80            1    
     ## 18       2017     64            64            1
 
-    by_year %>%
-      pivot_longer(c(n_rows, n_non_missing),
-                   names_to = "what", values_to = "count") %>%
-      ggplot(aes(REPORTYEAR, count, fill = what)) +
-      geom_col(position = "dodge") +
-      scale_fill_manual(values = c("#999999", "#444444"),
-                        labels = c("All rows", "Non-missing TOTAL Actual DD")) +
-      labs(x = "Year", y = "Count",
-           title = "Rows vs. Non-missing TOTAL Actual DD, by year",
-           fill = "") +
-      theme_minimal()
+``` r
+by_year %>%
+  pivot_longer(c(n_rows, n_non_missing),
+               names_to = "what", values_to = "count") %>%
+  ggplot(aes(REPORTYEAR, count, fill = what)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("#999999", "#444444"),
+                    labels = c("All rows", "Non-missing TOTAL Actual DD")) +
+  labs(x = "Year", y = "Count",
+       title = "Rows vs. Non-missing TOTAL Actual DD, by year",
+       fill = "") +
+  theme_minimal()
+```
 
-![](David-Zheng-MATH-534-HW-5-Q3_files/figure-markdown_strict/q3-by-year-plot-1.png)
+![](David-Zheng-MATH-534-HW-5-Q3_files/figure-gfm/q3-by-year-plot-1.png)<!-- -->
 
-    drop_after_2014 <- organs_original %>%
-      group_by(COUNTRY) %>%
-      summarise(
-        any_before_2015 = any(REPORTYEAR <= 2014 & !is.na(`TOTAL Actual DD`)),
-        any_after_2014  = any(REPORTYEAR >= 2015 & !is.na(`TOTAL Actual DD`)),
-        n_non_missing_before = sum(REPORTYEAR <= 2014 & !is.na(`TOTAL Actual DD`)),
-        n_non_missing_after  = sum(REPORTYEAR >= 2015 & !is.na(`TOTAL Actual DD`)),
-        .groups = "drop"
-      ) %>%
-      filter(any_before_2015, !any_after_2014) %>%
-      arrange(desc(n_non_missing_before))
+``` r
+drop_after_2014 <- organs_original %>%
+  group_by(COUNTRY) %>%
+  summarise(
+    any_before_2015 = any(REPORTYEAR <= 2014 & !is.na(`TOTAL Actual DD`)),
+    any_after_2014  = any(REPORTYEAR >= 2015 & !is.na(`TOTAL Actual DD`)),
+    n_non_missing_before = sum(REPORTYEAR <= 2014 & !is.na(`TOTAL Actual DD`)),
+    n_non_missing_after  = sum(REPORTYEAR >= 2015 & !is.na(`TOTAL Actual DD`)),
+    .groups = "drop"
+  ) %>%
+  filter(any_before_2015, !any_after_2014) %>%
+  arrange(desc(n_non_missing_before))
 
-    head(drop_after_2014, 20)  # peek top examples
+head(drop_after_2014, 20)  # peek top examples
+```
 
     ## # A tibble: 9 × 5
     ##   COUNTRY                    any_before_2015 any_after_2014 n_non_missing_before
@@ -1164,17 +1228,19 @@ the missing values we create are filled in during imputation.
     ## 9 Lao People's Democratic R… TRUE            FALSE                             1
     ## # ℹ 1 more variable: n_non_missing_after <int>
 
-    country_coverage <- organs_original %>%
-      group_by(COUNTRY) %>%
-      summarise(
-        years_in_data   = n_distinct(REPORTYEAR),
-        n_non_missing   = sum(!is.na(`TOTAL Actual DD`)),
-        prop_non_missing = n_non_missing / years_in_data,
-        .groups = "drop"
-      ) %>%
-      arrange(prop_non_missing)
+``` r
+country_coverage <- organs_original %>%
+  group_by(COUNTRY) %>%
+  summarise(
+    years_in_data   = n_distinct(REPORTYEAR),
+    n_non_missing   = sum(!is.na(`TOTAL Actual DD`)),
+    prop_non_missing = n_non_missing / years_in_data,
+    .groups = "drop"
+  ) %>%
+  arrange(prop_non_missing)
 
-    country_coverage %>% slice_head(n = 15)   # worst coverage
+country_coverage %>% slice_head(n = 15)   # worst coverage
+```
 
     ## # A tibble: 15 × 4
     ##    COUNTRY             years_in_data n_non_missing prop_non_missing
@@ -1195,7 +1261,9 @@ the missing values we create are filled in during imputation.
     ## 14 Cambodia                       15             0                0
     ## 15 Cape Verde                     15             0                0
 
-    country_coverage %>% slice_tail(n = 15)   # best coverage
+``` r
+country_coverage %>% slice_tail(n = 15)   # best coverage
+```
 
     ## # A tibble: 15 × 4
     ##    COUNTRY                    years_in_data n_non_missing prop_non_missing
@@ -1216,27 +1284,29 @@ the missing values we create are filled in during imputation.
     ## 14 Switzerland                           18            18                1
     ## 15 United States of America              18            18                1
 
-    library(tidyr)
+``` r
+library(tidyr)
 
-    all_years <- seq(min(organs_original$REPORTYEAR),
-                     max(organs_original$REPORTYEAR), by = 1)
+all_years <- seq(min(organs_original$REPORTYEAR),
+                 max(organs_original$REPORTYEAR), by = 1)
 
-    organs_completed <- organs_original %>%
-      complete(COUNTRY, REPORTYEAR = all_years)
+organs_completed <- organs_original %>%
+  complete(COUNTRY, REPORTYEAR = all_years)
 
-    missing_rows_by_year <- organs_completed %>%
-      # mark if this (country, year) existed in the raw file
-      mutate(row_present_in_raw = !if_all(-c(COUNTRY, REPORTYEAR), is.na)) %>%
-      group_by(REPORTYEAR) %>%
-      summarise(
-        expected_rows = n(),                 # = #countries appearing at least once overall
-        present_rows  = sum(row_present_in_raw),
-        absent_rows   = expected_rows - present_rows,
-        .groups = "drop"
-      ) %>%
-      arrange(REPORTYEAR)
+missing_rows_by_year <- organs_completed %>%
+  # mark if this (country, year) existed in the raw file
+  mutate(row_present_in_raw = !if_all(-c(COUNTRY, REPORTYEAR), is.na)) %>%
+  group_by(REPORTYEAR) %>%
+  summarise(
+    expected_rows = n(),                 # = #countries appearing at least once overall
+    present_rows  = sum(row_present_in_raw),
+    absent_rows   = expected_rows - present_rows,
+    .groups = "drop"
+  ) %>%
+  arrange(REPORTYEAR)
 
-    missing_rows_by_year
+missing_rows_by_year
+```
 
     ## # A tibble: 18 × 4
     ##    REPORTYEAR expected_rows present_rows absent_rows
@@ -1287,10 +1357,12 @@ If we ignore cases where there are missing values in any one of the
 three variables, then 99.3% of the remaining 945 rows satisfy the
 `TOTAL Actual DD` = `Actual DBD` + `Actual DCD`:
 
-    organs_original |>
-      drop_na(`TOTAL Actual DD`, `Actual DBD`, `Actual DCD`) |>
-      summarise(n = n(),
-                prop_equal = sum(`TOTAL Actual DD` == `Actual DBD` + `Actual DCD`) / n())
+``` r
+organs_original |>
+  drop_na(`TOTAL Actual DD`, `Actual DBD`, `Actual DCD`) |>
+  summarise(n = n(),
+            prop_equal = sum(`TOTAL Actual DD` == `Actual DBD` + `Actual DCD`) / n())
+```
 
     ## # A tibble: 1 × 2
     ##       n prop_equal
@@ -1306,28 +1378,28 @@ Now we’re ready to actually clean the data. Throughout our explorations
 above, we created the following action items (listed in the order they
 will be implemented):
 
--   Rename the column names so that they are consistent, human-readable,
-    underscore-separated, and lowercase
+- Rename the column names so that they are consistent, human-readable,
+  underscore-separated, and lowercase
 
--   Complete the data by adding in absent rows. The entries will be
-    filled with missing values.
+- Complete the data by adding in absent rows. The entries will be filled
+  with missing values.
 
--   Multiply the population variable by 1 million
+- Multiply the population variable by 1 million
 
 We also created the following pre-processing action items (that are not
 necessary for the data to be clean, but they will be useful for our
 analyses):
 
--   Add an imputed version of the `TOTAL Actual DD` count variable.
-    There are several judgment call options for this step (“average”,
-    “previous”, “closest”, “interpolate”). We could also add imputed
-    versions of the other variables too[2], but we will focus on this
-    variable in our analysis, we opted to just impute this variable (as
-    well as the population variable values that were filled as missing
-    when we completed the data).
+- Add an imputed version of the `TOTAL Actual DD` count variable. There
+  are several judgment call options for this step (“average”,
+  “previous”, “closest”, “interpolate”). We could also add imputed
+  versions of the other variables too[^2], but we will focus on this
+  variable in our analysis, we opted to just impute this variable (as
+  well as the population variable values that were filled as missing
+  when we completed the data).
 
--   Add an option to remove (or not) the pre-2007 data. The default is
-    to not remove this data.
+- Add an option to remove (or not) the pre-2007 data. The default is to
+  not remove this data.
 
 To keep things simple, rather than writing a separate pre-processing
 function, we just wrote a single “data preparation” function that
@@ -1341,84 +1413,86 @@ wrote which can be found in the
 `prepareOrganData()` function can be viewed by clicking on the triangle
 below to reveal the hidden code below.
 
-    # Cleaning function for the organ donation data
+``` r
+# Cleaning function for the organ donation data
 
 
 
-    prepareOrganData <- function(.organs_original,
-                                 .impute_method = c("average", "previous"),
-                                 .vars_to_impute = c("population", "total_deceased_donors"),
-                                 .per_mil_vars = TRUE) {
-      
-      # identify which imputation method is specified
-      .impute_method <- match.arg(.impute_method)
-      
-      # define a cleaned version of the original organs data
-      organs_clean <- .organs_original |>
-        # rename all variables
-        select(region = REGION,
-               country = COUNTRY,
-               year = REPORTYEAR,
-               population = POPULATION,
-               total_deceased_donors = `TOTAL Actual DD`,
-               deceased_donors_brain_death = `Actual DBD`,
-               deceased_donors_circulatory_death = `Actual DCD`,
-               total_utilized_deceased_donors = `Total Utilized DD`,
-               utilized_deceased_donors_brain_death = `Utilized DBD`,
-               utilized_deceased_donors_circulatory_death = `Utilized DCD`,
-               deceased_kidney_tx = `DD Kidney Tx`,
-               living_kidney_tx = `LD Kidney Tx`,
-               total_kidney_tx = `TOTAL Kidney Tx`,
-               deceased_liver_tx = `DD Liver Tx`,
-               living_liver_tx = `LD Liver Tx`,
-               domino_liver_tx = `DOMINO Liver Tx`,
-               total_liver_tx = `TOTAL Liver TX`,
-               total_heart_tx = `Total Heart`,
-               deceased_lung_tx = `DD Lung Tx`,
-               living_lung_tx = `DD Lung Tx`,
-               total_lung_tx = `TOTAL Lung Tx`,
-               total_pancreas_tx = `Pancreas Tx`,
-               total_kidney_pancreas_tx = `Kidney Pancreas Tx`,
-               total_small_bowel_tx = `Small Bowel Tx`) |>
-        # add in the missing rows with NAs (complete the data)
-        complete(country, year) |>
-        # for newly added rows, fill region with the unique values from the 
-        # pre-existing rows
-        group_by(country) |>
-        mutate(region = if_else(is.na(region), 
-                                true = unique(na.omit(region)), 
-                                false = region)) |>
-        ungroup() |>
-        # multiply the population variable by 1 million
-        mutate(population = population * 1000000)
-      
-      # add imputed features using the specified imputation method
-      # imputeFeature() is a custom function defined in imputeFeature.R
-      # Note that we are only imputing the total_deceased_donors variable and the 
-      # population variable (missing values were introduced when we 
-      # "completed" the data). You could impute more variables if you wanted to.
-      if (!is.null(.impute_method)) {
-        
-        organs_clean <- organs_clean |>
-          mutate(population_imputed = imputeFeature(organs_clean, 
-                                                    .feature = population,
-                                                    .group = country,
-                                                    .impute_method = .impute_method),
-                 total_deceased_donors_imputed = imputeFeature(organs_clean, 
-                                                               .feature = total_deceased_donors,
-                                                               .group = country,
-                                                               .impute_method = .impute_method))
-      }
-      
-      # rearrange the columns 
-      organs_clean <- organs_clean |> 
-        select(country, year, region, 
-               population, population_imputed, 
-               total_deceased_donors, total_deceased_donors_imputed,
-               everything())
-      
-      return(organs_clean)
-    }
+prepareOrganData <- function(.organs_original,
+                             .impute_method = c("average", "previous"),
+                             .vars_to_impute = c("population", "total_deceased_donors"),
+                             .per_mil_vars = TRUE) {
+  
+  # identify which imputation method is specified
+  .impute_method <- match.arg(.impute_method)
+  
+  # define a cleaned version of the original organs data
+  organs_clean <- .organs_original |>
+    # rename all variables
+    select(region = REGION,
+           country = COUNTRY,
+           year = REPORTYEAR,
+           population = POPULATION,
+           total_deceased_donors = `TOTAL Actual DD`,
+           deceased_donors_brain_death = `Actual DBD`,
+           deceased_donors_circulatory_death = `Actual DCD`,
+           total_utilized_deceased_donors = `Total Utilized DD`,
+           utilized_deceased_donors_brain_death = `Utilized DBD`,
+           utilized_deceased_donors_circulatory_death = `Utilized DCD`,
+           deceased_kidney_tx = `DD Kidney Tx`,
+           living_kidney_tx = `LD Kidney Tx`,
+           total_kidney_tx = `TOTAL Kidney Tx`,
+           deceased_liver_tx = `DD Liver Tx`,
+           living_liver_tx = `LD Liver Tx`,
+           domino_liver_tx = `DOMINO Liver Tx`,
+           total_liver_tx = `TOTAL Liver TX`,
+           total_heart_tx = `Total Heart`,
+           deceased_lung_tx = `DD Lung Tx`,
+           living_lung_tx = `DD Lung Tx`,
+           total_lung_tx = `TOTAL Lung Tx`,
+           total_pancreas_tx = `Pancreas Tx`,
+           total_kidney_pancreas_tx = `Kidney Pancreas Tx`,
+           total_small_bowel_tx = `Small Bowel Tx`) |>
+    # add in the missing rows with NAs (complete the data)
+    complete(country, year) |>
+    # for newly added rows, fill region with the unique values from the 
+    # pre-existing rows
+    group_by(country) |>
+    mutate(region = if_else(is.na(region), 
+                            true = unique(na.omit(region)), 
+                            false = region)) |>
+    ungroup() |>
+    # multiply the population variable by 1 million
+    mutate(population = population * 1000000)
+  
+  # add imputed features using the specified imputation method
+  # imputeFeature() is a custom function defined in imputeFeature.R
+  # Note that we are only imputing the total_deceased_donors variable and the 
+  # population variable (missing values were introduced when we 
+  # "completed" the data). You could impute more variables if you wanted to.
+  if (!is.null(.impute_method)) {
+    
+    organs_clean <- organs_clean |>
+      mutate(population_imputed = imputeFeature(organs_clean, 
+                                                .feature = population,
+                                                .group = country,
+                                                .impute_method = .impute_method),
+             total_deceased_donors_imputed = imputeFeature(organs_clean, 
+                                                           .feature = total_deceased_donors,
+                                                           .group = country,
+                                                           .impute_method = .impute_method))
+  }
+  
+  # rearrange the columns 
+  organs_clean <- organs_clean |> 
+    select(country, year, region, 
+           population, population_imputed, 
+           total_deceased_donors, total_deceased_donors_imputed,
+           everything())
+  
+  return(organs_clean)
+}
+```
 
 ### Checking the cleaned and pre-processed data
 
@@ -1430,13 +1504,17 @@ you will need to either run the code in the two hidden code chunks above
 to define the `prepareOrganData()` and `imputeFeature()` functions or
 you will need to source these files using the following code**:
 
-    source("/Users/dzheng46/Documents/MATH_534_Materials/imputeFeature.R")
-    source("/Users/dzheng46/Documents/MATH_534_Materials/prepareOrganData.R")
+``` r
+source("/Users/dzheng46/Documents/MATH_534_Materials/imputeFeature.R")
+source("/Users/dzheng46/Documents/MATH_534_Materials/prepareOrganData.R")
+```
 
 The following code cleans the organ donations data and uses the
 “average” (the default) option for imputation.
 
-    organs_clean <- prepareOrganData(organs_original)
+``` r
+organs_clean <- prepareOrganData(organs_original)
+```
 
 Note the `TOTAL Actual DD` variable is now called
 `total_deceased_donors`, and we decided that the cleaned/pre-processed
@@ -1447,7 +1525,9 @@ projects such as this one).
 
 Here are the first 10 rows:
 
-    head(organs_clean, 10)
+``` r
+head(organs_clean, 10)
+```
 
     ## # A tibble: 10 × 26
     ##    country      year region  population population_imputed total_deceased_donors
@@ -1472,8 +1552,10 @@ Here are the first 10 rows:
 
 and a random set of 10 rows:
 
-    organs_clean |>
-      sample_n(10)
+``` r
+organs_clean |>
+  sample_n(10)
+```
 
     ## # A tibble: 10 × 26
     ##    country       year region population population_imputed total_deceased_donors
@@ -1501,10 +1583,12 @@ Peru. Note that the `TOTAL Actual DD` variable is now called
 `total_deceased_donors`, and the imputed version is called
 `total_deceased_donors_imputed`.
 
-    organs_clean |>
-      filter(country == "Peru") |>
-      select(country, year, population, 
-             total_deceased_donors, total_deceased_donors_imputed)
+``` r
+organs_clean |>
+  filter(country == "Peru") |>
+  select(country, year, population, 
+         total_deceased_donors, total_deceased_donors_imputed)
+```
 
     ## # A tibble: 18 × 5
     ##    country  year population total_deceased_donors total_deceased_donors_imputed
@@ -1531,12 +1615,14 @@ Peru. Note that the `TOTAL Actual DD` variable is now called
 Below, we also check that the “previous” imputation method works as
 expected for Peru:
 
-    organs_clean_previous <- prepareOrganData(organs_original, 
-                                   .impute_method = "previous")
-    organs_clean_previous |>
-      filter(country == "Peru") |>
-      select(country, year, population, 
-             total_deceased_donors, total_deceased_donors_imputed)
+``` r
+organs_clean_previous <- prepareOrganData(organs_original, 
+                               .impute_method = "previous")
+organs_clean_previous |>
+  filter(country == "Peru") |>
+  select(country, year, population, 
+         total_deceased_donors, total_deceased_donors_imputed)
+```
 
     ## # A tibble: 18 × 5
     ##    country  year population total_deceased_donors total_deceased_donors_imputed
@@ -1560,8 +1646,9 @@ expected for Peru:
     ## 17 Peru     2016   31800000                    70                            70
     ## 18 Peru     2017   32200000                    52                            52
 
-[1] This survey was originally downloaded from
-<http://www.transplant-observatory.org/questionnaire-pdf/>
+[^1]: This survey was originally downloaded from
+    <http://www.transplant-observatory.org/questionnaire-pdf/>
 
-[2] As an exercise, you may want to try and modify the `imputeFeature()`
-code to also impute some of the transplant variables.
+[^2]: As an exercise, you may want to try and modify the
+    `imputeFeature()` code to also impute some of the transplant
+    variables.

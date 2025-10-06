@@ -2,7 +2,9 @@
 title: "MATH 534 HW 5 Q3"
 author: "David Zheng"
 date: "2025-10-5"
-output: md_document
+output: 
+  github_document:
+    toc: true
 ---
 
 
