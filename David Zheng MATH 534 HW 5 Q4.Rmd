@@ -1,32 +1,205 @@
 ---
-title: "MATH 534 HW 5 Q4"
+title: "MATH 534 HW 4"
 author: "David Zheng"
-date: "2025-10-5"
+date: "2025-09-27"
 output: 
   github_document:
     toc: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+## Domain problem formulation
+
+
+## Data source overview
+
+
+## a) Step 1: Review background information {#sec-bg-info}
+
+Two datasets are used:
+
+IMF public debt data (debt.xls) provides annual government debt as a percentage of GDP from 1800 to 2015 for 194 countries/regions.
+
+World Bank GDP growth data (growth.csv) provides annual real GDP growth rates (percent change) from 1960 to 2021 for 266 countries/regions.
+
+Each observation represents a country/region-year pair.
+Because the IMF data begins much earlier than the World Bank data, we restrict both datasets to 1960 onward to ensure overlapping years.
+
+### Data dictionary
+
+Variable	Description
+country	Country name
+year	Calendar year
+debt_pct_gdp	Central-government debt as % of GDP
+growth_pct_gdp	Annual GDP growth (%)
+
+
+## Step 2: Loading in the data
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(janitor)
+
+# Load datasets
+debt_raw   <- read_excel("/Users/dzheng46/Documents/MATH_534_Materials/debt.xls")
+growth_raw <- read_csv(
+  "/Users/dzheng46/Documents/MATH_534_Materials/growth.csv",
+  skip = 3,                    # start at the header row that begins "Country Name"
+  show_col_types = FALSE
+)
+
+debt_raw
+growth_raw
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Step 3: Examine the data and create action items
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+After examining the data, there were several issues found.
 
-```{r cars}
-summary(cars)
+### Finding invalid values
+
+There were missing GDP growth or debt values. The action item to take against this is to keep those missing values as NA for now. These will remain missing in the merged dataset. 
+
+### Assessing Column names
+
+Some inconsistencies were found in the column names across both datasets. For example, the IMF dataset doesn't have indicate a variable name of the country names while the World Bank dataset uses "Country Name". Additionally, many columns are labeled with years (e.g., "1960", "1961", "1962"), indicating a wide format structure. The action item to take for this is to standardize column names to lower case and consistent naming conventions (e.g., country, year, debt_pct_gdp, growth_pct_gdp). This will make it easier to merge and reference variables across datasets later.
+
+### Assessing variable type
+
+Most variables are read in as character type because the original Excel and CSV files contain both text and numbers (e.g., missing values, regional labels, or country names). Year columns should be numeric, but some may have been imported as character strings. The action item to take for this is to convert all year values and measurement columns to numeric data types after reshaping the data to long format. Ensure that numeric conversion handles blanks or symbols properly by turning them into NA.
+
+### Assessing data completeness
+
+The years in the IMF ranges from 1800-2015 while the years in the World Bank growth data goes from 1960-2021. Also, not every country has data for every year. The action item to take for this is to restrict both datasets to the 1960–2015 period to maximize overlap between them. After filtering, visually verify completeness by counting the number of non-missing values per year for both debt and growth datasets. Missing values will be recorded as NA so that the merged dataset reflects true data availability. 
+
+## Step 4: Clean and pre-process the data
+
+b)
+
+```{r}
+# --- Debt ---
+clean_debt_data <- function(df) {
+  df %>%
+    rename(country = 1) %>%                     # first col is country
+    select(country, matches("^\\d{4}$")) %>%    # keep only year columns
+    pivot_longer(
+      -country,
+      names_to   = "year",
+      values_to  = "debt_pct_gdp",
+      names_transform = list(year = as.integer)
+    ) %>%
+    mutate(
+      # handle stray non-numeric tokens like ".."
+      debt_pct_gdp = readr::parse_number(as.character(debt_pct_gdp))
+    ) %>%
+    filter(year >= 1960) %>%
+    filter(!country %in% c("World","Euro area","High income","Low income","OECD members"))
+}
+
+# --- Growth ---
+clean_growth_data <- function(df) {
+  df %>%
+    rename(country = `Country Name`) %>%
+    select(country, matches("^\\d{4}$")) %>%
+    pivot_longer(
+      -country,
+      names_to   = "year",
+      values_to  = "growth_pct_gdp",
+      names_transform = list(year = as.integer)
+    ) %>%
+    mutate(growth_pct_gdp = readr::parse_number(as.character(growth_pct_gdp))) %>%
+    filter(year >= 1960) %>%
+    filter(!country %in% c("World","Euro area","High income","Low income","OECD members"))
+}
+
+# Apply
+debt_clean   <- clean_debt_data(debt_raw)
+growth_clean <- clean_growth_data(growth_raw)
+
+# --- Check Australia 1960–1969 example ---
+debt_clean %>% filter(country == "Australia", year >= 1960, year <= 1969)
+growth_clean %>% filter(country == "Australia", year >= 1960, year <= 1969)
 ```
 
-## Including Plots
+c)
+```{r}
+## Step 4c — Pre-processing join (harmonize names + merge) ----
 
-You can also embed plots, for example:
+# 1) A small crosswalk for common WB vs IMF country name differences.
+#    Left side = *IMF spelling*, Right side = *World Bank standard*.
+imf_to_wb <- c(
+  "United States of America" = "United States",
+  "Korea, South"             = "Korea, Rep.",
+  "Republic of Korea"        = "Korea, Rep.",
+  "Korea (Republic of)"      = "Korea, Rep.",
+  "Iran"                     = "Iran, Islamic Rep.",
+  "Iran (Islamic Republic of)" = "Iran, Islamic Rep.",
+  "Egypt"                    = "Egypt, Arab Rep.",
+  "Gambia"                   = "Gambia, The",
+  "Congo, Democratic Republic of" = "Congo, Dem. Rep.",
+  "Democratic Republic of the Congo" = "Congo, Dem. Rep.",
+  "Congo, Republic of"       = "Congo, Rep.",
+  "Russian Federation"       = "Russian Federation", # (WB already uses this)
+  "Russia"                   = "Russian Federation",
+  "Venezuela"                = "Venezuela, RB",
+  "Lao People's Democratic Republic" = "Lao PDR",
+  "Yemen"                    = "Yemen, Rep.",
+  "Bahamas"                  = "Bahamas, The",
+  "Hong Kong"                = "Hong Kong SAR, China",
+  "Macao"                    = "Macao SAR, China",
+  "Palestine, State of"      = "West Bank and Gaza",
+  "Cabo Verde"               = "Cabo Verde"          # (example keeping as-is)
+)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# 2) Build a standardized key in each table (target standard = World Bank names).
+normalize_name <- function(x) {
+  x %>%
+    str_squish() %>%
+    str_replace_all("\\s+", " ")                # collapse weird spacing
+}
+
+growth_std <- growth_clean %>%
+  mutate(country_std = normalize_name(country)) %>%
+  select(country_std, country, year, growth_pct_gdp)
+
+debt_std <- debt_clean %>%
+  mutate(country = normalize_name(country)) %>%
+  mutate(country_std = recode(country, !!!imf_to_wb, .default = country)) %>%
+  select(country_std, country, year, debt_pct_gdp)
+
+# 3) Quick diagnostics: which names still don’t match?
+#    (Countries present in one table but not the other after standardization)
+unmatched_in_growth <- anti_join(growth_std %>% distinct(country_std),
+                                 debt_std   %>% distinct(country_std),
+                                 by = "country_std")
+unmatched_in_debt   <- anti_join(debt_std   %>% distinct(country_std),
+                                 growth_std %>% distinct(country_std),
+                                 by = "country_std")
+
+
+# If you see a few lingering mismatches, add them to `imf_to_wb` above and rerun.
+
+# 4) Merge on standardized country + year (keep original names for readability)
+combined_data <- full_join(
+  debt_std  %>% select(country_std, year, debt_pct_gdp),
+  growth_std %>% select(country_std, year, growth_pct_gdp),
+  by = c("country_std", "year")
+) %>%
+  # prefer the WB country label when available, fallback to IMF one
+  left_join(growth_std %>% select(country_std, country) %>% distinct(),
+            by = "country_std") %>%
+  rename(country_wb = country) %>%
+  left_join(debt_std %>% select(country_std, country) %>% distinct(),
+            by = "country_std") %>%
+  rename(country_imf = country) %>%
+  mutate(country = coalesce(country_wb, country_imf, country_std)) %>%
+  select(country, year, debt_pct_gdp, growth_pct_gdp) %>%
+  arrange(country, year)
+
+# 5) Sanity check: Australia 1960–1969 should match the example table
+combined_data %>%
+  filter(country == "Australia", dplyr::between(year, 1960, 1969))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
